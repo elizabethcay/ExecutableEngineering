@@ -290,8 +290,8 @@ def visual_golden_section(f, x1, x3, tol=1e-5, max_iter=None):
         ),
         xaxis_title="x",
         yaxis_title="f(x)",
-        width=800,
-        height=620,
+        width=700,
+        height=540,
         margin=dict(
             l=25,
             r=25,
@@ -479,23 +479,13 @@ def visual_powell_2d(
         )
     )
 
-    if converged:
-        title = (
-            f"Powell's Method: Converged "
-            f"({iteration + 1} iterations)"
-        )
-    else:
-        title = (
-            f"Powell's Method: Maximum Iterations Reached "
-            f"({max_iter} iterations)"
-        )
-
+    title = (f"Powell's Method")
     fig.update_layout(
         title=title,
         xaxis_title="x",
         yaxis_title="y",
-        width=800,
-        height=600,
+        width=700,
+        height=525,
         margin=dict(
             l=25,
             r=25,
@@ -550,6 +540,7 @@ def newton_method(f, grad_f, hessian_f, x0, tol=1e-6, max_iter=100):
 
   fig.update_layout(
       title='Newton\'s Method Optimization',
+      height = 600,
       scene=dict(
           xaxis_title='x',
           yaxis_title='y',
