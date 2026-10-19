@@ -1,13 +1,3 @@
-"""
-Name: Elizabeth Cay
-Student Number: 400583418 
-MacID: caye
-
-Description: This module compares the computational efficiencies of backtracking and bounded minimzation. 
-The script traces a path along a Rosenbrock function. A plot the trajectories is produced with a 
-report of the total number of iterations and function evaluations executed. 
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize_scalar
