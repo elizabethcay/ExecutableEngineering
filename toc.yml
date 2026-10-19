@@ -63,11 +63,12 @@ project:
     - file: "chapters/optimization/optimization.ipynb"
       children:
         - file: "chapters/optimization/closed_methods.ipynb"
-        - file: "chapters/optimization/open_methods.ipynb"
+        - file: "chapters/optimization/open_methods/open_methods.ipynb"
           children:
-            - file: "chapters/optimization/gradient_based_optimizers.ipynb"
-            - file: "chapters/optimization/indefinite_systems.ipynb"
-            - file: "chapters/optimization/trust_region_methods.ipynb"
+            - file: "chapters/optimization/open_methods/gradient_free_optimizers.ipynb"
+            - file: "chapters/optimization/open_methods/gradient_based_optimizers.ipynb"
+            - file: "chapters/optimization/open_methods/indefinite_systems.ipynb"
+            - file: "chapters/optimization/open_methods/trust_region_methods.ipynb"
         - file: "chapters/optimization/equality_constraints.ipynb"
         - file: "chapters/optimization/nonlinear_least_squares.ipynb"
         - file: "chapters/optimization/neural_networks.ipynb"

@@ -280,3 +280,139 @@ class OptimizerClosed:
         tab_container.set_title(1, "Brent's Method")
 
         display(tab_container)
+
+
+class ScalarTracker:
+    """Wraps a 1D objective function to record scalar evaluations during optimization."""
+    def __init__(self, f):
+        self.f = f
+        self.x_history = []
+        self.f_history = []
+
+    def __call__(self, x):
+        val = self.f(x)
+        if np.ndim(x) == 0 or (isinstance(x, np.ndarray) and x.size == 1):
+            x_scalar = float(np.squeeze(x))
+            f_scalar = float(np.squeeze(val))
+            self.x_history.append(x_scalar)
+            self.f_history.append(f_scalar)
+        return val
+
+
+def plot_bracketed_progression(f, tracker, result=None, x_range=(-5, 5), x_true=None, title=None):
+    """Plots a 2-panel Plotly figure showing function evaluations and convergence progression."""
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    x_vals = np.linspace(x_range[0], x_range[1], 400)
+    y_vals = f(x_vals)
+
+    xs = np.array(tracker.x_history, dtype=float)
+    ys = np.array(tracker.f_history, dtype=float)
+    steps = np.arange(1, len(xs) + 1)
+
+    if result is not None:
+        x_min, y_min = float(result.x), float(result.fun)
+    elif len(xs) > 0:
+        idx = int(np.argmin(ys))
+        x_min, y_min = xs[idx], ys[idx]
+    else:
+        x_min, y_min = 0.0, float(f(0.0))
+
+    x_ref = float(x_true) if x_true is not None else x_min
+
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=("Objective Function & Evaluations", "Solver Progression (|xₖ - x*| & xₖ)"),
+        horizontal_spacing=0.12,
+        specs=[[{"secondary_y": False}, {"secondary_y": True}]]
+    )
+
+    # Left panel: f(x) curve
+    fig.add_trace(
+        go.Scatter(x=x_vals, y=y_vals, mode='lines', name='f(x)', line=dict(color='royalblue', width=2)),
+        row=1, col=1
+    )
+
+    # Left panel: evaluated points colored by iteration
+    if len(xs) > 0:
+        hover_texts = [f"Eval {k}<br>x = {xk:.6g}<br>f(x) = {yk:.6g}" for k, xk, yk in zip(steps, xs, ys)]
+        fig.add_trace(
+            go.Scatter(
+                x=xs, y=ys,
+                mode='markers+lines',
+                name='Evaluations',
+                line=dict(color='rgba(150, 150, 150, 0.35)', dash='dot', width=1),
+                marker=dict(
+                    size=8,
+                    color=steps,
+                    colorscale='Viridis',
+                    showscale=True,
+                    colorbar=dict(title="Eval #", len=0.85, x=-0.12),
+                    line=dict(width=1, color='black')
+                ),
+                text=hover_texts,
+                hoverinfo='text'
+            ),
+            row=1, col=1
+        )
+
+    # Left panel: Final minimum star
+    fig.add_trace(
+        go.Scatter(
+            x=[x_min], y=[y_min],
+            mode='markers',
+            name=f'Minimum (x*={x_min:.4g})',
+            marker=dict(color='crimson', size=13, symbol='star', line=dict(width=1, color='black'))
+        ),
+        row=1, col=1
+    )
+
+    # Right panel: x_k progression (primary y-axis) and |x_k - x*| (secondary log y-axis)
+    if len(xs) > 0:
+        fig.add_trace(
+            go.Scatter(
+                x=steps, y=xs,
+                mode='lines+markers',
+                name='Guess xₖ',
+                line=dict(color='teal', width=2),
+                marker=dict(size=6)
+            ),
+            row=1, col=2, secondary_y=False
+        )
+        fig.add_hline(y=x_ref, line_dash='dash', line_color='crimson', opacity=0.6, row=1, col=2, secondary_y=False)
+
+        raw_err = np.abs(xs - x_ref)
+        if x_true is None and np.any(raw_err == 0):
+            nonzero = raw_err[raw_err > 0]
+            floor_val = 0.5 * np.min(nonzero) if len(nonzero) > 0 else 1e-12
+            err = np.where(raw_err == 0, floor_val, raw_err)
+        else:
+            err = np.maximum(raw_err, 1e-16)
+
+        fig.add_trace(
+            go.Scatter(
+                x=steps, y=err,
+                mode='lines+markers',
+                name='|xₖ - x*| (log)',
+                line=dict(color='darkorange', width=2, dash='dot'),
+                marker=dict(size=6, symbol='diamond')
+            ),
+            row=1, col=2, secondary_y=True
+        )
+
+    fig.update_xaxes(title_text="x", row=1, col=1)
+    fig.update_yaxes(title_text="f(x)", row=1, col=1)
+    fig.update_xaxes(title_text="Evaluation Number (k)", row=1, col=2)
+    fig.update_yaxes(title_text="Guess xₖ", row=1, col=2, secondary_y=False)
+    fig.update_yaxes(title_text="Error |xₖ - x*|", type="log", row=1, col=2, secondary_y=True)
+
+    fig.update_layout(
+        title=title or f"Solver Progression ({len(xs)} Function Evaluations)",
+        width=950,
+        height=430,
+        margin=dict(l=90, r=60, t=60, b=50),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.28, xanchor="center", x=0.5)
+    )
+    fig.show()
+
