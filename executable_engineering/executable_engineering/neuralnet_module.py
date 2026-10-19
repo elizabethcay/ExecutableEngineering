@@ -1,9 +1,14 @@
 # Neural network model UI and plotting
 import ipywidgets as widgets
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 import networkx as nx
 import numpy as np
 import plotly.graph_objs as go
+from IPython.display import display
+
+plt.ioff()
 
 def init_weights():
     global W1, b1, W2, b2
@@ -139,32 +144,40 @@ def backward_pass(zs, activations, y_true, lr=0.01):
     grads_b = [None] * len(biases)
 
     delta = (activations[-1] - y_true)
-    grads_w[-1] = activations[-2].T @ delta / len(X)
+    inv_m = 1.0 / len(y_true)
+    grads_w[-1] = (activations[-2].T @ delta) * inv_m
     grads_b[-1] = np.mean(delta, axis=0, keepdims=True)
 
     for l in range(2, len(weights)+1):
         z = zs[-l]
         sp = activation_derivative(z)
         delta = (delta @ weights[-l+1].T) * sp
-        grads_w[-l] = activations[-l-1].T @ delta / len(X)
+        grads_w[-l] = (activations[-l-1].T @ delta) * inv_m
         grads_b[-l] = np.mean(delta, axis=0, keepdims=True)
 
     for i in range(len(weights)):
         weights[i] -= lr * grads_w[i]
         biases[i] -= lr * grads_b[i]
-        weight_history[i].append(weights[i].copy())
-        bias_history[i].append(biases[i].copy())
+        # Efficient scalar tracking to eliminate memory overhead
+        weight_history[i].append(float(weights[i].ravel()[0]))
+        bias_history[i].append(float(biases[i].ravel()[0]))
 
-    return np.mean((activations[-1] - y_true)**2)
+    return float(np.mean((activations[-1] - y_true)**2))
 
-def step(n,output_plot, metrics_plot, network_plot):
+def step(n, output_plot, metrics_plot, network_plot, status_label=None):
     global losses
-    if true_function is None: return
+    if true_function is None:
+        if status_label:
+            status_label.value = "Please save a function first."
+        return
     y_true = true_function(X)
+    last_loss = 0.0
     for _ in range(n):
         zs, activations = forward_pass(X)
-        loss = backward_pass(zs, activations, y_true)
-        losses.append(loss)
+        last_loss = backward_pass(zs, activations, y_true)
+        losses.append(last_loss)
+    if status_label:
+        status_label.value = f"Trained {n} steps. Total steps: {len(losses)} | Loss: {last_loss:.4e}"
     update_plots(output_plot, metrics_plot, network_plot)
 
 def reset_model(output_plot, metrics_plot, network_plot, status_label):
@@ -195,10 +208,52 @@ def change_width(d, output_plot, metrics_plot, network_plot, status_label):
     reset_model(output_plot, metrics_plot, network_plot, status_label)
 
 
-def draw_network(activations):
-    import matplotlib.cm as cm
-    import matplotlib.colors as mcolors
+def train_until_convergence(output_plot, metrics_plot, network_plot, status_label, target_loss=0.005, max_steps=10000, tol=1e-5, patience=200):
+    """Trains the neural network iteratively until a target loss or convergence plateau is reached."""
+    global losses
+    if true_function is None:
+        status_label.value = "Please save a function first."
+        return
 
+    y_true = true_function(X)
+    status_label.value = "Training to convergence..."
+
+    batch_size = 50
+    step_count = 0
+    best_loss = float('inf')
+    stagnant_count = 0
+    stop_reason = ""
+    current_loss = float('inf')
+
+    while step_count < max_steps:
+        for _ in range(batch_size):
+            zs, activations = forward_pass(X)
+            current_loss = backward_pass(zs, activations, y_true)
+            losses.append(current_loss)
+        step_count += batch_size
+
+        if current_loss <= target_loss:
+            stop_reason = f"Target loss met ({current_loss:.4e} <= {target_loss}) in {step_count} steps. Total: {len(losses)}"
+            break
+
+        if abs(best_loss - current_loss) < tol:
+            stagnant_count += batch_size
+            if stagnant_count >= patience:
+                stop_reason = f"Converged (loss change < {tol:.0e} over {patience} steps) at loss {current_loss:.4e} in {step_count} steps. Total: {len(losses)}"
+                break
+        else:
+            stagnant_count = 0
+            if current_loss < best_loss:
+                best_loss = current_loss
+
+    if not stop_reason:
+        stop_reason = f"Reached maximum of {max_steps} steps. Current loss: {current_loss:.4e}. Total: {len(losses)}"
+
+    status_label.value = stop_reason
+    update_plots(output_plot, metrics_plot, network_plot)
+
+
+def draw_network(activations):
     G = nx.DiGraph()
     labels = {}
     pos = {}
@@ -242,44 +297,112 @@ def draw_network(activations):
 
 
 def update_plots(output_plot, metrics_plot, network_plot):
-    output_plot.clear_output(wait=True)
-    metrics_plot.clear_output(wait=True)
-    network_plot.clear_output(wait=True)
+    plt.ioff()
     with output_plot:
+        output_plot.clear_output(wait=True)
         if true_function:
-            plt.figure(figsize=(6, 3))
+            fig_out = plt.figure(figsize=(6, 3))
             y_true = true_function(X)
             _, activations = forward_pass(X2)
             y_pred = activations[-1]
-            plt.plot(X, y_true, label='True')
-            plt.scatter(X2, y_pred, label='NN')
+            plt.plot(X, y_true, label='True', color='black', linewidth=1.5)
+            plt.scatter(X2, y_pred, label='NN Output', color='tab:blue', s=20, alpha=0.8, zorder=3)
             plt.legend()
             plt.title("Function vs NN Output")
-            plt.grid(True)
-            plt.show()
+            plt.grid(True, linestyle='--', alpha=0.6)
+            plt.tight_layout()
+            display(fig_out)
+            plt.close(fig_out)
 
     with metrics_plot:
         if losses:
-            plt.figure(figsize=(6, 3))
-            plt.plot(losses, label="Loss", color='red')
+            metrics_plot.clear_output(wait=True)
+            fig_met = plt.figure(figsize=(6, 3))
+            stride = max(1, len(losses) // 500)
+            indices = list(range(0, len(losses), stride))
+            loss_sub = [losses[idx] for idx in indices]
+            plt.plot(indices, loss_sub, label="Loss", color='red', linewidth=1.5, zorder=4)
             for i, history in enumerate(weight_history):
-                flat_vals = [w.flatten()[0] for w in history]
-                plt.plot(flat_vals, label=f"W{i}_0", alpha=0.5)
+                sub_w = [history[idx] for idx in indices]
+                plt.plot(indices, sub_w, label=f"W{i}_0", alpha=0.5)
             for i, history in enumerate(bias_history):
-                flat_vals = [b.flatten()[0] for b in history]
-                plt.plot(flat_vals, label=f"b{i}_0", linestyle='dotted', alpha=0.5)
+                sub_b = [history[idx] for idx in indices]
+                plt.plot(indices, sub_b, label=f"b{i}_0", linestyle='dotted', alpha=0.5)
             plt.title("Loss and Parameter Changes")
+            plt.grid(True, linestyle='--', alpha=0.6)
+            plt.legend(loc='upper right', fontsize=8)
+            plt.tight_layout()
+            display(fig_met)
+            plt.close(fig_met)
+        else:
+            metrics_plot.clear_output(wait=False)
 
-            plt.grid(True)
-            plt.legend()
-            plt.show()
     with network_plot:
+        network_plot.clear_output(wait=True)
         if true_function:
             _, activations = forward_pass(X)
+            fig_net = plt.figure(figsize=(7, 3.5))
             G, pos, labels, edge_labels, edge_colors = draw_network(activations)
             edge_color_vals = [edge_colors.get(edge, '#888888') for edge in G.edges()]
             nx.draw(G, pos, labels=labels, node_color='lightblue', node_size=600,
-                    edge_color=edge_color_vals, edge_cmap=plt.cm.bwr, arrows=True)
+                    edge_color=edge_color_vals, arrows=True, font_size=9)
             nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8)
             plt.title("Neural Network Diagram")
-            plt.show()
+            display(fig_net)
+            plt.close(fig_net)
+
+
+def interactive_neural_network():
+    """Constructs and displays the interactive neural network training widget."""
+    import ipywidgets as widgets
+    from ipywidgets import VBox, HBox, Button, Text, Label, Output
+
+    plt.ioff()
+    output_plot = Output()
+    network_plot = Output(layout={"height": "500px", "overflow": "auto"})
+    metrics_plot = Output()
+    status_label = Label(value="Press 'Step' to begin training.")
+
+    function_input = Text(value='exp(-x/2)*sin(2*pi*x)', description='f(x):')
+    save_button = Button(description='Save Function', button_style='success')
+    reset_button = Button(description='Reset Model', button_style='warning')
+
+    step_label = Label(value="Step:")
+    step_1 = Button(description='1')
+    step_10 = Button(description='10')
+    step_100 = Button(description='100')
+    step_1000 = Button(description='1000')
+    step_10000 = Button(description='10000')
+    train_converge_btn = Button(description='Train to Convergence', button_style='primary', tooltip='Trains iteratively until target loss (<=0.005) or plateau is reached')
+
+    depth_label = Label(value="Change Depth (layers):")
+    depth_add = Button(description='+1')
+    depth_sub = Button(description='-1')
+    width_label = Label(value="Change Width (neurons):")
+    width_add = Button(description='+1')
+    width_sub = Button(description='-1')
+
+    save_button.on_click(lambda b: save_function(function_input, output_plot, metrics_plot, network_plot, status_label))
+    reset_button.on_click(lambda b: reset_model(output_plot, metrics_plot, network_plot, status_label))
+    step_1.on_click(lambda b: step(1, output_plot, metrics_plot, network_plot, status_label))
+    step_10.on_click(lambda b: step(10, output_plot, metrics_plot, network_plot, status_label))
+    step_100.on_click(lambda b: step(100, output_plot, metrics_plot, network_plot, status_label))
+    step_1000.on_click(lambda b: step(1000, output_plot, metrics_plot, network_plot, status_label))
+    step_10000.on_click(lambda b: step(10000, output_plot, metrics_plot, network_plot, status_label))
+    train_converge_btn.on_click(lambda b: train_until_convergence(output_plot, metrics_plot, network_plot, status_label))
+    depth_add.on_click(lambda b: change_depth(1, output_plot, metrics_plot, network_plot, status_label))
+    depth_sub.on_click(lambda b: change_depth(-1, output_plot, metrics_plot, network_plot, status_label))
+    width_add.on_click(lambda b: change_width(1, output_plot, metrics_plot, network_plot, status_label))
+    width_sub.on_click(lambda b: change_width(-1, output_plot, metrics_plot, network_plot, status_label))
+
+    top_controls = HBox([function_input, save_button, reset_button])
+    step_controls = HBox([step_label, step_1, step_10, step_100, step_1000, step_10000, train_converge_btn])
+    depth_controls = HBox([depth_label, depth_sub, depth_add])
+    width_controls = HBox([width_label, width_sub, width_add])
+    graph_row = HBox([output_plot, metrics_plot])
+    full_ui = VBox([top_controls, status_label, step_controls, depth_controls, width_controls, network_plot, graph_row])
+    display(full_ui)
+
+    init_model()
+    save_function(function_input, output_plot, metrics_plot, network_plot, status_label)
+

@@ -229,3 +229,138 @@ class OptimizerOpen:
         tab.set_title(0, "Powell's Method")
         tab.set_title(1, "Nelder–Mead Method")
         display(tab)
+
+
+def plot_optimization_path_3d(func, path, x_range=None, y_range=None, displacement_factor=0.8, title="3D Optimization Surface & Path"):
+    """
+    Plots an interactive 3D surface with floor contour shadow and the optimization path.
+    
+    Args:
+        func: Callable taking a 2-element sequence [x1, x2] and returning a scalar.
+        path: Array-like of shape (N, 2) containing the sequence of iterate points.
+        x_range: Tuple of (x_min, x_max). If None, inferred with margin from path.
+        y_range: Tuple of (y_min, y_max). If None, inferred with margin from path.
+        displacement_factor: Fraction of z-span to displace the floor below the surface minimum.
+        title: Plot title.
+    """
+    import numpy as np
+    import plotly.graph_objects as go
+
+    pts = np.asarray(path, dtype=float)
+    if pts.ndim != 2 or pts.shape[1] != 2:
+        raise ValueError("path must be of shape (N, 2)")
+
+    if x_range is None:
+        dx = max(np.ptp(pts[:, 0]) * 0.35, 1.0)
+        x_range = (np.min(pts[:, 0]) - dx, np.max(pts[:, 0]) + dx)
+    if y_range is None:
+        dy = max(np.ptp(pts[:, 1]) * 0.35, 1.0)
+        y_range = (np.min(pts[:, 1]) - dy, np.max(pts[:, 1]) + dy)
+
+    x_vals = np.linspace(x_range[0], x_range[1], 100)
+    y_vals = np.linspace(y_range[0], y_range[1], 100)
+    X, Y = np.meshgrid(x_vals, y_vals)
+
+    Z = np.zeros_like(X)
+    for i in range(X.shape[0]):
+        for j in range(X.shape[1]):
+            Z[i, j] = func([X[i, j], Y[i, j]])
+
+    z_pts = np.array([float(func(pt)) for pt in pts])
+    z_min_surf = float(np.min(Z))
+    z_max_surf = float(np.max(Z))
+    z_span = z_max_surf - z_min_surf if z_max_surf > z_min_surf else 1.0
+    z_gap = displacement_factor * z_span
+    z_floor = z_min_surf - z_gap
+    steps = np.arange(len(pts))
+
+    fig = go.Figure()
+
+    # 3D surface with bottom-projected contours (shadow)
+    fig.add_trace(go.Surface(
+        x=x_vals, y=y_vals, z=Z,
+        colorscale="Viridis",
+        opacity=0.85,
+        contours=dict(
+            z=dict(show=True, usecolormap=True, highlightcolor="limegreen", project_z=True)
+        ),
+        colorbar=dict(title="f(x1, x2)", len=0.75, x=1.05),
+        name="Surface"
+    ))
+
+    # 3D path line along the surface
+    fig.add_trace(go.Scatter3d(
+        x=pts[:, 0], y=pts[:, 1], z=z_pts,
+        mode="lines",
+        line=dict(color="red", width=5),
+        name="Path (3D)"
+    ))
+
+    # 3D iterate markers colored by step number
+    hover_texts = [
+        f"Step {k}<br>x1 = {pt[0]:.4f}<br>x2 = {pt[1]:.4f}<br>f = {zk:.4e}"
+        for k, (pt, zk) in enumerate(zip(pts, z_pts))
+    ]
+
+    fig.add_trace(go.Scatter3d(
+        x=pts[:, 0], y=pts[:, 1], z=z_pts,
+        mode="markers",
+        marker=dict(
+            size=5,
+            color=steps,
+            colorscale="Plasma",
+            showscale=True,
+            colorbar=dict(title="Iteration", len=0.75, x=-0.08)
+        ),
+        name="Iterates",
+        text=hover_texts,
+        hoverinfo="text"
+    ))
+
+    # Projected 2D shadow path on the floor plane z = z_floor
+    fig.add_trace(go.Scatter3d(
+        x=pts[:, 0], y=pts[:, 1], z=[z_floor] * len(pts),
+        mode="lines+markers",
+        line=dict(color="rgba(40, 40, 40, 0.6)", width=3, dash="dot"),
+        marker=dict(size=3, color="black"),
+        name="Floor Projection"
+    ))
+
+    # Start and End points
+    fig.add_trace(go.Scatter3d(
+        x=[pts[0, 0]], y=[pts[0, 1]], z=[z_pts[0]],
+        mode="markers",
+        marker=dict(size=8, color="cyan", symbol="circle"),
+        name=f"Start ({pts[0, 0]:.2f}, {pts[0, 1]:.2f})"
+    ))
+
+    fig.add_trace(go.Scatter3d(
+        x=[pts[-1, 0]], y=[pts[-1, 1]], z=[z_pts[-1]],
+        mode="markers",
+        marker=dict(size=10, color="crimson", symbol="diamond"),
+        name=f"End ({pts[-1, 0]:.4f}, {pts[-1, 1]:.4f})"
+    ))
+
+    fig.update_layout(
+        title=title,
+        scene=dict(
+            xaxis_title="x1",
+            yaxis_title="x2",
+            zaxis_title="f(x1, x2)",
+            zaxis=dict(range=[z_floor, z_max_surf + 0.05 * z_span]),
+            aspectmode="manual",
+            aspectratio=dict(x=1, y=1, z=0.9),
+            camera=dict(eye=dict(x=1.6, y=1.6, z=1.3))
+        ),
+        width=800,
+        height=600,
+        margin=dict(l=20, r=20, t=50, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.15, xanchor="center", x=0.5)
+    )
+    fig.show()
+
+
+# Backward-compatible alias
+plot_optimization_path_2d = plot_optimization_path_3d
+
+
