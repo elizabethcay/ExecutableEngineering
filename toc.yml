@@ -45,28 +45,33 @@ project:
             - file: "chapters/interpolation_and_curve_fitting/interpolation/summary_of_interpolation.ipynb"
         - file: "chapters/interpolation_and_curve_fitting/curve_fitting/curve_fitting.ipynb"
           children:
-            - file: "chapters/interpolation_and_curve_fitting/curve_fitting/weighted_linear_least_squares.ipynb"
             - file: "chapters/interpolation_and_curve_fitting/curve_fitting/polyfit.ipynb"
+            - file: "chapters/interpolation_and_curve_fitting/curve_fitting/weighted_linear_least_squares.ipynb"
             - file: "chapters/interpolation_and_curve_fitting/curve_fitting/best_fit_radial_basis_functions.ipynb"
 
     - file: "chapters/root_finding/root_finding.ipynb"
       children:
+        - file: "chapters/root_finding/types_of_roots.ipynb"
         - file: "chapters/root_finding/polynomial_roots.ipynb"
-        - file: "chapters/root_finding/closed_methods.ipynb"
-        - file: "chapters/root_finding/open_methods.ipynb"
+        - file: "chapters/root_finding/closed_methods/closed_methods.ipynb"
           children:
-            - file: "chapters/root_finding/newton-raphson_method.ipynb"
-            - file: "chapters/root_finding/basins_of_attraction.ipynb"
-            - file: "chapters/root_finding/global_convergence_methods.ipynb"
+            - file: "chapters/root_finding/closed_methods/bisection_and_false_position.ipynb"
+        - file: "chapters/root_finding/open_methods/open_methods.ipynb"
+          children:
+            - file: "chapters/root_finding/open_methods/secant_and_newton-raphson.ipynb"
+            - file: "chapters/root_finding/open_methods/newton-raphson_method.ipynb"
+            - file: "chapters/root_finding/open_methods/basins_of_attraction.ipynb"
+            - file: "chapters/root_finding/open_methods/global_convergence_methods.ipynb"
 
     - file: "chapters/optimization/optimization.ipynb"
       children:
         - file: "chapters/optimization/closed_methods.ipynb"
-        - file: "chapters/optimization/open_methods.ipynb"
+        - file: "chapters/optimization/open_methods/open_methods.ipynb"
           children:
-            - file: "chapters/optimization/gradient_based_optimizers.ipynb"
-            - file: "chapters/optimization/indefinite_systems.ipynb"
-            - file: "chapters/optimization/trust_region_methods.ipynb"
+            - file: "chapters/optimization/open_methods/gradient_free_optimizers.ipynb"
+            - file: "chapters/optimization/open_methods/gradient_based_optimizers.ipynb"
+            - file: "chapters/optimization/open_methods/indefinite_systems.ipynb"
+            - file: "chapters/optimization/open_methods/trust_region_methods.ipynb"
         - file: "chapters/optimization/equality_constraints.ipynb"
         - file: "chapters/optimization/nonlinear_least_squares.ipynb"
         - file: "chapters/optimization/neural_networks.ipynb"

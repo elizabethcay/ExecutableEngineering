@@ -134,22 +134,30 @@ class RootFinderClosed:
         )
         plt.close(fig)
         return HTML(anim.to_jshtml())
-
+    
     def show_toggle_closed(self, interval_ms=750):
-        bisect_anim_html = self._make_animation_closed('Bisection', interval_ms)
-        falsepos_anim_html = self._make_animation_closed('False Position', interval_ms)
-
-        if bisect_anim_html is None or falsepos_anim_html is None:
-            print("Cannot create animations. Check initial interval [a, b].")
-            return
-
-        bisect_content = widgets.HTML(value=bisect_anim_html.data)
-        falsepos_content = widgets.HTML(value=falsepos_anim_html.data)
-
-        tab_container = widgets.Tab()
-        tab_container.children = [bisect_content, falsepos_content]
-
-        tab_container.set_title(0, 'Bisection')
-        tab_container.set_title(1, 'False Position')
-
-        display(tab_container)
+            bisect_anim_html = self._make_animation_closed('Bisection', interval_ms)
+            falsepos_anim_html = self._make_animation_closed('False Position', interval_ms)
+    
+            if bisect_anim_html is None or falsepos_anim_html is None:
+                print("Cannot create animations. Check initial interval [a, b].")
+                return
+    
+            # Create Output widgets to capture rich HTML and script execution
+            bisect_out = widgets.Output()
+            falsepos_out = widgets.Output()
+    
+            with bisect_out:
+                display(bisect_anim_html)
+    
+            with falsepos_out:
+                display(falsepos_anim_html)
+    
+            # Assign Output widgets as the tab children
+            tab_container = widgets.Tab()
+            tab_container.children = [bisect_out, falsepos_out]
+    
+            tab_container.set_title(0, 'Bisection')
+            tab_container.set_title(1, 'False Position')
+    
+            display(tab_container)
